@@ -1,4 +1,4 @@
-**Label-free segmentation and tracking of single stem cells using an efficient deep learning model**
+#**Label-free segmentation and tracking of single stem cells using an efficient deep learning model**
 
 **Abstract**
 
@@ -10,8 +10,12 @@
 
 To download our datasets go to https://deepseas.org/datasets/ or:
 
-#
+#**Datasets**
+
 Download dataset_for_cell_segmentation thorugh
+
 Download dataset_for_nucleus_segmentation thought
+
 Download dataset_for_cell_tracking thought
+
 Download dataset_for_cell_cycle_tracking thought
