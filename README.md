@@ -4,7 +4,7 @@
 
 
 <p align="center">
-  <img src="docs/Fig1.png" width="450" title="hover text">
+  <img src="docs/Fig1.png" width="550" title="hover text">
 </p>
 
 
