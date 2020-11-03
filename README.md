@@ -25,13 +25,9 @@ Link to [dataset_for_cell_cycle_tracking](http://google.com)
 
 ## Segmentation Results
 
-| Syntax      | Description | Test Text     |
-| :---        |    :----:   |          ---: |
-| Header      | Title       | Here's this   |
-| Paragraph   | Text        | And more      |
+| Object      | IOU         | Precision     | Recall     |
+| :----:      |    :----:   |        :----: |  :----:    |
+| Cell        | 90%         | 95%           | 94%        | 
+| Nucleus     | 73%         | 84%           | 85%        |
 
 
-| Object | IOU | Precision | Recall |
-| ------------ | ------------- | ------------- |
-| Cell | 90% | 95% | 94% |
-| Nucleus | 73% | 84% | 85% |
