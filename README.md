@@ -25,7 +25,7 @@ Link to [dataset_for_cell_cycle_tracking](http://google.com)
 
 ## Segmentation Results
 
-|             | IOU         | Precision     | Recall     |
+              | IOU         | Precision     | Recall     |
 | :----:      |    :----:   |        :----: |  :----:    |
 | Cell        | 90%         | 95%           | 94%        | 
 | Nucleus     | 73%         | 84%           | 85%        |
@@ -33,14 +33,14 @@ Link to [dataset_for_cell_cycle_tracking](http://google.com)
 
 ## Detection Results
 
-|             | IOU         | Precision     | Recall     |
+              | IOU         | Precision     | Recall     |
 | :----:      |    :----:   |        :----: |  :----:    |
 | Cell        | 93%         | 90%           | 92%        | 
 | Nucleus     | 73%         | 68%           | 71%        |
 
 ## Frame-by-frame cell tracking Results
 
-|             | Overal      | Hard          | Easy       | single cell | birth    |
+              | Overal      | Hard          | Easy       | single cell | birth    |
 | :----:      |    :----:   |        :----: |  :----:    |:----:       |:----:    |
 | Precision   | 89%         | 97%           | 88%        | 89%      |89%          |
 | Recall      | 100%         | 99%           | 99%        |100%       | 100%      |
