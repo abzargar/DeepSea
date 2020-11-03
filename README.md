@@ -16,7 +16,7 @@ Link to [Original_annotated_dataset](http://google.com)
 
 Link to [dataset_for_cell_segmentation](https://drive.google.com/drive/folders/1iCC22iz7UBQdmADLuDe8ugAkmUqqsv13?usp=sharing)
 
-Link to [dataset_for_nucleus_segmentation](http://google.com)
+Link to [dataset_for_nucleus_segmentation](https://drive.google.com/drive/folders/1gfEqRQOOBx2xZ1L7pCW67FBvTODulvvt?usp=sharing)
 
 Link to [dataset_for_cell_tracking](http://google.com)
 
