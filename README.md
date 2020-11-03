@@ -24,7 +24,7 @@ Link to [dataset_for_cell_cycle_tracking](http://google.com)
 # Results
 
 ## Segmentation Results
-Object | IOU | Precision | Recall |
------------- | ------------- | ------------- |
-Cell | 90% | 95% | 94% |
-Nucleus | 73% | 84% | 85% |
+| Object | IOU | Precision | Recall |
+| ------------ | ------------- | ------------- |
+| Cell | 90% | 95% | 94% |
+| Nucleus | 73% | 84% | 85% |
