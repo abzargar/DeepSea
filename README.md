@@ -2,6 +2,10 @@
 
 **Abstract**
 
+<p align="center">
+  <img src="docs/Fig1.png" width="350" title="hover text">
+</p>
+
 ![Screenshot](docs/Fig1.png)
 
 To download our datasets go to https://deepseas.org/datasets/ or:
