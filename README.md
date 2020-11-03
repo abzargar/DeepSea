@@ -2,7 +2,7 @@
 
 **Abstract**
 
-alt text
+![Screenshot](docs/Fig1.png)
 
 To download our datasets go to https://deepseas.org/datasets/ or:
 
