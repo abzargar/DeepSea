@@ -12,7 +12,7 @@
 
 To download our datasets go to https://deepseas.org/datasets/ or:
 
-Link to [Original_annotated_dataset](http://google.com)
+Link to [Original_annotated_dataset](https://drive.google.com/drive/folders/1uJSgGgW-wqG3uzDRO3EDn_D7jMpBfuMV?usp=sharing)
 
 Link to [dataset_for_cell_segmentation](https://drive.google.com/drive/folders/1iCC22iz7UBQdmADLuDe8ugAkmUqqsv13?usp=sharing)
 
@@ -20,7 +20,7 @@ Link to [dataset_for_nucleus_segmentation](https://drive.google.com/drive/folder
 
 Link to [dataset_for_cell_tracking](https://drive.google.com/drive/folders/1dtaXnp0PH7iQPXOzfZMtvwgqOvCDa2yn?usp=sharing)
 
-Link to [dataset_for_cell_cycle_tracking](http://google.com)
+Link to [dataset_for_cell_cycle_tracking](https://drive.google.com/drive/folders/1ox6xhWy8B5vxlsF9vcJt0ywVOMe-fY2J?usp=sharing)
 
 
 # Results
