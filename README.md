@@ -49,7 +49,7 @@ Link to [dataset_for_cell_cycle_tracking](https://drive.google.com/drive/folders
 
 ## Cell cycle tracking Results
 
-|      MOTA   | MT          | ML            | Precision  | Recall      | Frag     |IDS       |
-| :----:      |    :----:   |        :----: |  :----:    |:----:       |:----:    |:----:    |
-| 96%         | 92%         | 0.0           | 99%        | 98%         |11        |5         |
+|      MOTA   | MT          | ML            | Precision  | Recall      | Frag     |IDS        |
+| :----:      |    :----:   |        :----: |  :----:    |:----:       |:----:    |:----:     |
+| 86%         | 79%         | 11%           | 95%        | 91%         |49        |27         |
 
