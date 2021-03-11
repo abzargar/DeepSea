@@ -42,10 +42,10 @@ Link to [dataset_for_cell_cycle_tracking](https://drive.google.com/drive/folders
 
 ## Frame-by-frame cell tracking Results
 
-|              | Overal      | Hard          | Easy       | single cell | birth    |
-| :----:      |    :----:   |        :----: |  :----:    |:----:       |:----:    |
-| Precision   | 89%         | 97%           | 88%        | 89%      |89%          |
-| Recall      | 100%         | 99%           | 99%        |100%       | 100%      |
+|              | Overal       | Hard          | Easy       | single cell | birth    |
+| :----:       |    :----:    |        :----: |  :----:    |:----:       |:----:    |
+| Precision    | 94%          | 93%           | 99%        | 94%         |93%       |
+| Recall       | 99%          | 99%           | 100%       | 99%         | 98%      |
 
 ## Cell cycle tracking Results
 
