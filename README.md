@@ -1,55 +1,65 @@
-# Label-free segmentation and tracking of single stem cells using an efficient deep learning model
+# DeepSea 
 
-## Abstract
+This repo contains the training and evaluation code for the project [DeepSea: An efficient deep learning model for automated cell segmentation and tracking](https://www.deepseas.org/). 
 
-
-<p align="center">
-  <img src="docs/Fig1.png" width="550" title="hover text">
-</p>
+This work presents a versatile and trainable deep-learning-based software, termed DeepSea, that allows for both segmentation and tracking of single cells and their nuclei in sequences of phasecontrast live microscopy images.
 
 
-# Datasets
+### Datasets
 
 To download our datasets go to https://deepseas.org/datasets/ or:
 
-Link to [Original_annotated_dataset](https://drive.google.com/drive/folders/1uJSgGgW-wqG3uzDRO3EDn_D7jMpBfuMV?usp=sharing)
+* Link to [Original annotated dataset](https://drive.google.com/drive/folders/1uJSgGgW-wqG3uzDRO3EDn_D7jMpBfuMV?usp=sharing)
 
-Link to [dataset_for_cell_segmentation](https://drive.google.com/drive/folders/1iCC22iz7UBQdmADLuDe8ugAkmUqqsv13?usp=sharing)
+* Link to [dataset for cell segmentation](https://drive.google.com/drive/folders/1iCC22iz7UBQdmADLuDe8ugAkmUqqsv13?usp=sharing)
 
-Link to [dataset_for_nucleus_segmentation](https://drive.google.com/drive/folders/1gfEqRQOOBx2xZ1L7pCW67FBvTODulvvt?usp=sharing)
+* Link to [dataset for cell tracking](https://drive.google.com/drive/folders/1dtaXnp0PH7iQPXOzfZMtvwgqOvCDa2yn?usp=sharing)
 
-Link to [dataset_for_cell_tracking](https://drive.google.com/drive/folders/1dtaXnp0PH7iQPXOzfZMtvwgqOvCDa2yn?usp=sharing)
+### Pre-trained models
+They are saved in the folder "trained_models".
 
-Link to [dataset_for_cell_cycle_tracking](https://drive.google.com/drive/folders/1ox6xhWy8B5vxlsF9vcJt0ywVOMe-fY2J?usp=sharing)
+### Requirements
 
+* [Optional] Create a conda or python virtual environment.
 
-# Results
+* Install required packages using the `requirements.txt` file.
+```
+pip install -r requirements.txt
+```
 
-## Segmentation Results
+### Usage
+* #### Run the cell segmentation training
+Run train_segmentation.py with the train set of [segmentation dataset](https://drive.google.com/drive/folders/1iCC22iz7UBQdmADLuDe8ugAkmUqqsv13?usp=sharing)
+```
+Example:
+python train_segmentation.py --train_dir  segmentation_dataset/train/  --lr 0.001 --max_epoch 200 --batch_size 32 --output_dir tmp/
+```
+* #### Run the cell tracker training
+Run train_tracker.py with the train set of [tracking dataset](https://drive.google.com/drive/folders/1iCC22iz7UBQdmADLuDe8ugAkmUqqsv13?usp=sharing)
+```
+Example:
+python train_tracker.py --train_dir tracking_dataset/train/ --lr 0.001 --max_epoch 200 --batch_size 32 --output_dir tmp/
+```
+* #### Run the cell segmentation test
+Run test_segmentation.py with the test set of segmentation dataset and trained segmentation model
+```
+Example:
+python test_segmentation.py --test_dir segmentation_dataset/test/ --ckpt_dir trained_models/segmentation.pth --output_dir tmp/
+```
+* #### Run the cell segmentation test
+Run test_tracker.py with the test set of tracking dataset and trained tracker model
+```
+Example:
+python test_tracker.py --test_dir tracking_dataset/test --ckpt_dir trained_models/tracker.pth --output_dir tmp/
+```
+* #### Measure MOTA
+Run measure_MOTA.py with a time-lapse microscopy set and both segmentation and tracker models
+```
+Example:
+python measure_MOTA.py --test_dir tracking_dataset/test/set_9_MC2C12/ --seg_ckpt_dir trained_models/segmentation.pth --tracker_ckpt_dir trained_models/tracker.pth  --output_dir tmp/
+```
+### Useful Information
+If you have any questions, contact us at abzargar@ucsc.edu.
 
-|             | IOU         | Precision     | Recall     |
-| :----:      |    :----:   |        :----: |  :----:    |
-| Cell        | 90%         | 95%           | 94%        | 
-| Nucleus     | 73%         | 84%           | 85%        |
-
-
-## Detection Results
-
-|              | IOU         | Precision     | Recall     |
-| :----:      |    :----:   |        :----: |  :----:    |
-| Cell        | 93%         | 90%           | 92%        | 
-| Nucleus     | 73%         | 68%           | 71%        |
-
-## Frame-by-frame cell tracking Results
-
-|              | Overal       | Hard          | Easy       | single cell | birth    |
-| :----:       |    :----:    |        :----: |  :----:    |:----:       |:----:    |
-| Precision    | 94%          | 93%           | 99%        | 94%         |93%       |
-| Recall       | 99%          | 99%           | 100%       | 99%         | 98%      |
-
-## Cell cycle tracking Results
-
-|      MOTA   | MT          | ML            | Precision  | Recall      | Frag     |IDS        |
-| :----:      |    :----:   |        :----: |  :----:    |:----:       |:----:    |:----:     |
-| 86%         | 79%         | 11%           | 95%        | 91%         |49        |27         |
-
+### Acknowledgements
+This work was supported by the NIGMS/NIH through a Pathway to Independence Award 435 K99GM126027 (S.A.S.) and start- up package of the University of California, Santa Cruz
