@@ -2,7 +2,7 @@
 
 This repo contains the training and evaluation code for the project [DeepSea: An efficient deep learning model for automated cell segmentation and tracking](https://www.deepseas.org/). 
 
-This work presents a versatile and trainable deep-learning-based software, termed DeepSea, that allows for both segmentation and tracking of single cells and their nuclei in sequences of phasecontrast live microscopy images.
+This work presents a versatile and trainable deep-learning-based software, termed DeepSea, that allows for both segmentation and tracking of single cells in sequences of phase-contrast live microscopy images.
 
 
 ### Datasets
