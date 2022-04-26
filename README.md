@@ -58,6 +58,14 @@ Run measure_MOTA.py with a time-lapse microscopy set and both segmentation and t
 Example:
 python measure_MOTA.py --test_dir tracking_dataset/test/set_9_MC2C12/ --seg_ckpt_dir trained_models/segmentation.pth --tracker_ckpt_dir trained_models/tracker.pth  --output_dir tmp/
 ```
+### DeepSea GUI Software
+Our DeepSea software isavailable on https://deepseas.org/software/ 
+with examples and instructions. DeepSea is a user-friendly software designed to enable researchers to 1) load and explore their phase-contrast 
+cell images in a high contrast display, 2) detect and localize cell bodies, 3) track and label cell lineages across the frame sequences, 4) manually correct the DeepSea 
+models' outputs, 5) train a new model with a new cell type dataset
+, 6) save the results and reports on the local system. 
+It employs our last trained DeepSea models in the segmentation and tracking processes.
+
 ### Useful Information
 If you have any questions, contact us at abzargar@ucsc.edu.
 
