@@ -11,9 +11,9 @@ To download our datasets go to https://deepseas.org/datasets/ or:
 
 * Link to [Original annotated dataset](https://drive.google.com/drive/folders/13RhhBAetSWkjySyhJcDqj_FaO09hxkhO?usp=sharing)
 
-* Link to [dataset for cell segmentation](https://drive.google.com/drive/folders/1gJIkwUQEtut4JCCoUXUcKUWp2gVYxQ9P?usp=sharing)
+* Link to [dataset example for cell segmentation](https://drive.google.com/drive/folders/1gJIkwUQEtut4JCCoUXUcKUWp2gVYxQ9P?usp=sharing)
 
-* Link to [dataset for cell tracking](https://drive.google.com/drive/folders/17n0Ex8NQS-REB5ZAMlntVnYBnSmZJtLR?usp=sharing)
+* Link to [dataset example for cell tracking](https://drive.google.com/drive/folders/17n0Ex8NQS-REB5ZAMlntVnYBnSmZJtLR?usp=sharing)
 
 ### Pre-trained models
 They are saved in the folder "trained_models".

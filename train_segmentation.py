@@ -1,4 +1,6 @@
 import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 import argparse
 from model import DeepSeaSegmentation
 from data import BasicSegmentationDataset
@@ -34,7 +36,7 @@ def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],vali
                                    transforms.Grayscale(num_output_channels=1),
                                    transforms.RandomApply([
                                        transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0),
-                                       transforms.GaussianBlur((3, 3), sigma=(0.1, 0.5)),
+                                       transforms.GaussianBlur((3, 3), sigma=(0.1, 1.0)),
                                        transforms.RandomHorizontalFlip(0.5),
                                        transforms.RandomVerticalFlip(0.5),
                                     ],p=1-1/train_aug_iter),
@@ -52,7 +54,7 @@ def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],vali
         ])
 
 
-    train_data = BasicSegmentationDataset(os.path.join(args.train_dir, 'images'), os.path.join(args.train_dir, 'masks'),os.path.join(args.train_dir, 'wmaps'),transforms=train_transforms,if_train_aug=if_train_aug,train_aug_iter=train_aug_iter)
+    train_data = BasicSegmentationDataset(os.path.join(args.train_set_dir, 'images'), os.path.join(args.train_set_dir, 'masks'),os.path.join(args.train_set_dir, 'wmaps'),transforms=train_transforms,if_train_aug=if_train_aug,train_aug_iter=train_aug_iter)
 
     n_train_examples = int(len(train_data) * valid_ratio)
     n_valid_examples = len(train_data) - n_train_examples
@@ -117,10 +119,10 @@ def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],vali
         val_score,avg_precision,_,_ = evaluate_segmentation(model, valid_iterator, device,n_valid_examples,is_avg_prec=((1+epoch)%2==0),prec_thresholds=[0.5])
         if avg_precision is not None:
             logging.info('>>>> Epoch:%d  , loss=%f , valid score=%f , avg precision=%f' % (
-            epoch, epoch_loss / (step+1), val_score.cpu().numpy(), avg_precision[0]))
+            epoch, epoch_loss / (step+1), val_score, avg_precision[0]))
         else:
             logging.info('>>>> Epoch:%d  , loss=%f , valid score=%f' % (
-                epoch, epoch_loss / (step + 1), val_score.cpu().numpy()))
+                epoch, epoch_loss / (step + 1), val_score))
 
         ## Save best checkpoint corresponding the best average precision
         if avg_precision is not None and avg_precision>avg_precision_best:
@@ -143,14 +145,14 @@ def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],vali
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--train_dir",required=True,type=str,help="path for the train dataset")
+    ap.add_argument("--train_set_dir",required=True,type=str,help="path for the train dataset")
     ap.add_argument("--lr", default=1e-3,type=float, help="learning rate")
     ap.add_argument("--max_epoch", default=200, type=int, help="maximum epoch to train model")
     ap.add_argument("--batch_size", default=16, type=int, help="train batch size")
     ap.add_argument("--output_dir", required=True, type=str, help="path for saving the train log and best checkpoint")
 
     args = ap.parse_args()
-    assert os.path.isdir(args.train_dir), 'No such file or directory: ' + args.train_dir
+    assert os.path.isdir(args.train_set_dir), 'No such file or directory: ' + args.train_set_dir
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
 

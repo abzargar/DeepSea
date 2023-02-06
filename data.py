@@ -70,7 +70,7 @@ class BasicTrackerDataset(Dataset):
         self.ids={}
         cell_id=0
         print('INFO: Read subfolders of video sequences and prepare training dataset ...')
-        print('INFO: Wait until finished, it takes relatively long time depending on data complexity ...')
+        print('INFO: Wait until finished, it takes relatively long time depending on dataset size and complexity ...')
         for subfolder in tqdm(sorted(os.listdir(data_dir))):
             image_list=sorted(os.listdir(os.path.join(data_dir,subfolder,'images')))
             for idx in range(len(image_list)-1):
@@ -146,15 +146,15 @@ class BasicTrackerDataset(Dataset):
                     crop_out = np.uint8(np.asarray(crop_out).astype('float32') * 255)
 
                     if np.sum(crop_out):
-                        g=1
+                        num_copies=1
                         if len(target_cell_curr_idx)>1 and if_test==False:
-                           g=50
+                           num_copies=50
                         if if_train_aug:
-                            for j in range(g*train_aug_iter):
+                            for _ in range(num_copies*train_aug_iter):
                                 self.ids[cell_id]=[crop_prev,crop_curr,crop_out]
                                 cell_id += 1
                         else:
-                            for j in range(g):
+                            for _ in range(num_copies):
                                 self.ids[cell_id]=[crop_prev,crop_curr,crop_out]
                                 cell_id += 1
 
