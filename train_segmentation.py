@@ -1,6 +1,4 @@
 import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 import argparse
 from model import DeepSeaSegmentation
 from data import BasicSegmentationDataset
