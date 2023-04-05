@@ -32,39 +32,55 @@ pip install -r requirements.txt
 Run train_segmentation.py with the train set of [segmentation dataset](https://drive.google.com/drive/folders/1iCC22iz7UBQdmADLuDe8ugAkmUqqsv13?usp=sharing)
 ```
 Example:
-python train_segmentation.py --train_dir  segmentation_dataset/train/  --lr 0.001 --max_epoch 200 --batch_size 32 --output_dir tmp/
+python train_segmentation.py --train_set_dir  segmentation_dataset/train/  --lr 0.001 --max_epoch 200 --batch_size 32 --output_dir tmp/
 ```
 * #### Run the cell tracker training
 Run train_tracker.py with the train set of [tracking dataset](https://drive.google.com/drive/folders/1iCC22iz7UBQdmADLuDe8ugAkmUqqsv13?usp=sharing)
 ```
 Example:
-python train_tracker.py --train_dir tracking_dataset/train/ --lr 0.001 --max_epoch 200 --batch_size 32 --output_dir tmp/
+python train_tracker.py --train_set_dir tracking_dataset/train/ --lr 0.001 --max_epoch 200 --batch_size 32 --output_dir tmp/
 ```
 * #### Run the cell segmentation test
-Run test_segmentation.py with the test set of segmentation dataset and trained segmentation model
+Run evaluate_test_set_segmentation.py with the test set of segmentation dataset and segmentation model
 ```
 Example:
-python test_segmentation.py --test_dir segmentation_dataset/test/ --ckpt_dir trained_models/segmentation.pth --output_dir tmp/
+python evaluate_test_set_segmentation.py --test_set_dir segmentation_dataset/test/ --ckpt_dir trained_models/segmentation.pth --output_dir tmp/
 ```
-* #### Run the cell segmentation test
-Run test_tracker.py with the test set of tracking dataset and trained tracker model
+* #### Run the cell tracking test
+Run evaluate_test_set_tracking.py with the test set of tracking dataset and tracking model
 ```
 Example:
-python test_tracker.py --test_dir tracking_dataset/test --ckpt_dir trained_models/tracker.pth --output_dir tmp/
+python evaluate_test_set_tracking.py --test_set_dir tracking_dataset/test --ckpt_dir trained_models/tracker.pth --output_dir tmp/
+```
+* #### Run the single image segmentation test
+Run test_single_image_segmentation.py with one single cell image and segmentation model
+```
+Example:
+python test_single_image_segmentation.py --single_img_dir segmentation_dataset/test/images/A11_z003_c001.png --ckpt_dir trained_models/segmentation.pth --output_dir tmp/
+```
+* #### Run the single image set tracking test
+Run test_single_set_tracking.py with one single time-lapse microscopy image sequences and tracking model
+```
+Example:
+python test_single_set_tracking.py --single_image_set_dir tracking_dataset/test/set_13_MESC/images/ --seg_ckpt_dir trained_models/segmentation.pth --tr_ckpt_dir trained_models/tracker.pth --output_dir tmp/
 ```
 * #### Measure MOTA
-Run measure_MOTA.py with a time-lapse microscopy set and both segmentation and tracker models
+Run measure_MOTA.py with a time-lapse microscopy set and both segmentation and tracking models
 ```
 Example:
-python measure_MOTA.py --test_dir tracking_dataset/test/set_9_MC2C12/ --seg_ckpt_dir trained_models/segmentation.pth --tracker_ckpt_dir trained_models/tracker.pth  --output_dir tmp/
+python measure_MOTA.py --single_test_set_dir tracking_dataset/test/set_13_MESC/ --seg_ckpt_dir trained_models/segmentation.pth --tr_ckpt_dir trained_models/tracker.pth  --output_dir tmp/
 ```
 ### DeepSea GUI Software
-Our DeepSea software isavailable on https://deepseas.org/software/ 
-with examples and instructions. DeepSea is a user-friendly software designed to enable researchers to 1) load and explore their phase-contrast 
-cell images in a high contrast display, 2) detect and localize cell bodies, 3) track and label cell lineages across the frame sequences, 4) manually correct the DeepSea 
-models' outputs, 5) train a new model with a new cell type dataset
-, 6) save the results and reports on the local system. 
+Our DeepSea software is available on https://deepseas.org/software/ 
+with examples and instructions. DeepSea software is a user-friendly and automated software designed
+to enable researchers to 1) load and explore their phase-contrast cell images in a 
+high-contrast display, 2) detect and localize cell bodies using the pre-trained DeepSea 
+segmentation model, 3) track and label cell lineages across the frame sequences using the pre-trained 
+DeepSea tracking model, 4) manually correct the DeepSea models' outputs using user-friendly editing 
+options, 5) train a new model with a new cell type dataset if needed, 6) save the results and cell label 
+and feature reports on the local system. It employs our latest trained DeepSea models in the segmentation and tracking processes.
 It employs our last trained DeepSea models in the segmentation and tracking processes.
+![Screenshot](DeepSea_Software.png)
 
 ### Useful Information
 If you have any questions, contact us at abzargar@ucsc.edu.
