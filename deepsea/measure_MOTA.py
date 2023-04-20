@@ -51,8 +51,8 @@ def main(args,seg_img_size= [383,512],tracking_image_size = [128,128],image_mean
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     seg_transforms = segmentation_transforms.Compose([
+                               segmentation_transforms.ToPILImage(),
                                segmentation_transforms.Resize(seg_img_size),
-                               segmentation_transforms.Grayscale(num_output_channels=1),
                                segmentation_transforms.ToTensor(),
                                segmentation_transforms.Normalize(mean = image_means,
                                                     std = image_stds)
@@ -99,7 +99,6 @@ if __name__ == "__main__":
     ap.add_argument("--output_dir", required=True, type=str, help="path for saving the test outputs")
 
     args = ap.parse_args()
-
     assert os.path.isdir(args.single_test_set_dir), 'No such file or directory: ' + args.single_test_set_dir
 
     if os.path.isdir(args.output_dir):

@@ -3,7 +3,6 @@ from skimage.morphology import remove_small_objects
 import numpy as np
 import argparse
 import cv2
-from PIL import Image
 import os
 from scipy import ndimage as ndi
 import random
@@ -27,7 +26,7 @@ def apply_img_segmentation(model_ckpt,img,image_size = [383,512],image_means = [
         ------------
 
         model_ckpt: Pre-trained segmentation model checkpoint
-        img: Input image (PIL Image)
+        img: Input image (CV2 Numpy Image)
 
         Returns
         ------------
@@ -39,14 +38,13 @@ def apply_img_segmentation(model_ckpt,img,image_size = [383,512],image_means = [
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     test_transforms = transforms.Compose([
+                               transforms.ToPILImage(),
                                transforms.Resize(image_size),
-                               transforms.Grayscale(num_output_channels=1),
                                transforms.ToTensor(),
                                transforms.Normalize(mean = image_means,
                                                     std = image_stds)
                            ])
-
-
+    img = (255 * ((img - img.min()) / img.ptp())).astype(np.uint8)
     tensor_img=test_transforms(img).to(device=device, dtype=torch.float32)
     model=DeepSeaSegmentation(n_channels=1, n_classes=2, bilinear=True)
     model.load_state_dict(model_ckpt)
@@ -75,7 +73,7 @@ if __name__ == "__main__":
         os.makedirs(args.output_dir)
 
     model_ckpt=torch.load(args.ckpt_dir)
-    img = Image.open(args.single_img_dir)
+    img = cv2.imread(args.single_img_dir,0)
     label_img,binary_mask,overlay_img,img=apply_img_segmentation(model_ckpt,img)
     cv2.imwrite(os.path.join(args.output_dir, 'label_img.png'), label_img)
     cv2.imwrite(os.path.join(args.output_dir, 'binary_mask.png'), binary_mask)

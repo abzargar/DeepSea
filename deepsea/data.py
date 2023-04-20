@@ -17,7 +17,7 @@ class BasicSegmentationDataset(Dataset):
         if if_train_aug:
             self.ids = [os.path.splitext(file)[0] for file in sorted(os.listdir(images_dir)) if not file.startswith('.')]
             tmp=[]
-            for i in range(train_aug_iter):
+            for i in range(train_aug_iter+1):
                 tmp+=self.ids
             self.ids=tmp
         else:
@@ -42,14 +42,17 @@ class BasicSegmentationDataset(Dataset):
         assert len(mask_file) == 1, f'Either no mask or multiple masks found for the ID {name}: {mask_file}'
         assert len(img_file) == 1, f'Either no image or multiple images found for the ID {name}: {img_file}'
 
-        mask = cv2.imread(mask_file[0].as_posix())[:, :, 0] > 0
-        wmap=cv2.imread(unetwmap_file[0].as_posix())[:, :, 0]
+        mask = cv2.imread(mask_file[0].as_posix(),0) > 0
 
-        mask=mask & (wmap<255)
-        mask = Image.fromarray(np.uint8(mask.astype('float32') * 255))
-        wmap = Image.fromarray(np.uint8(wmap))
+        wmap=cv2.imread(unetwmap_file[0].as_posix(),0)>0
 
-        img = Image.open(img_file[0])
+
+        mask=mask & (wmap<1)
+        wmap=wmap.astype('float32')
+        mask = mask.astype('float32')
+        img=cv2.imread(img_file[0].as_posix(),0).astype('float32')
+        img=(255 * ((img - img.min()) / (img.ptp()+1e-6))).astype(np.uint8)
+
 
 
         assert img.size == mask.size, \
@@ -169,9 +172,6 @@ class BasicTrackerDataset(Dataset):
 
     def __getitem__(self, idx):
         img_prev,img_curr,mask = self.ids[idx]
-        img_prev=Image.fromarray(img_prev)
-        img_curr = Image.fromarray(img_curr)
-        mask = Image.fromarray(mask)
         tensor_img_prev,tensor_img_curr,tensor_mask = self.preprocess(img_prev,img_curr,mask,self.transforms)
 
         return {

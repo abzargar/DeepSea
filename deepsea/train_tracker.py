@@ -1,4 +1,3 @@
-import os
 import argparse
 from model import DeepSeaTracker
 from data import BasicTrackerDataset
@@ -24,28 +23,46 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 
-def train(args,image_size = [128,128],image_means = [0.5],image_stds= [0.5],valid_ratio = 0.8,save_checkpoint=True,if_train_aug=True,train_aug_iter=1,patience=5):
+def train(args,image_size = [128,128],image_means = [0.5],image_stds= [0.5],train_ratio = 0.85,save_checkpoint=True,if_train_aug=True,train_aug_iter=2,patience=5):
+    """ function to train the tracking model
 
+                Parameters
+                ------------
+
+                image_size: used to  resize the input image to the given size
+                image_means: used for the input image normalization
+                image_stds: used for the input image normalization
+                train_ratio: ratio of training samples to train the model, the remaining go for the validation process
+                save_checkpoint: True/False, True saves the best checkpoint given the validation score during the training process
+                if_train_aug: True/False, True uses the image augmentation during the training process (Recommended)
+                train_aug_iter: Number of augmentation iterations requested for each original training image
+                patience: number of epochs with no improvement before it stops the training, used for the early stopping technique
+
+    """
     logging.basicConfig(filename=os.path.join(args.output_dir, 'train.log'), filemode='w',format='%(asctime)s - %(message)s', level=logging.INFO)
     logging.info('>>>> image size=(%d,%d) , learning rate=%f , batch size=%d' % (image_size[0], image_size[1],args.lr,args.batch_size))
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if if_train_aug:
         train_transforms = transforms.Compose([
-                                   transforms.Grayscale(num_output_channels=1),
-                                   transforms.RandomApply([
-                                       transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0),
-                                       transforms.GaussianBlur((3, 3), sigma=(0.1, 0.5)),
-                                       transforms.RandomHorizontalFlip(0.5),
-                                       transforms.RandomVerticalFlip(0.5),
-                                    ],p=1-1/train_aug_iter),
-                                   transforms.Resize(image_size),
-                                   transforms.ToTensor(),
-                                   transforms.Normalize(mean = image_means,std = image_stds)
-                               ])
+            transforms.ToPILImage(),
+            transforms.RandomApply([transforms.RandomOrder([
+                transforms.RandomApply([transforms.ColorJitter(brightness=0.33, contrast=0.33, saturation=0.33, hue=0)],p=0.5),
+                transforms.RandomApply([transforms.GaussianBlur((3, 3), sigma=(0.1, 0.5))], p=0.5),
+                transforms.RandomApply([transforms.RandomHorizontalFlip(0.5)], p=0.5),
+                transforms.RandomApply([transforms.RandomVerticalFlip(0.5)], p=0.5),
+                transforms.RandomApply([transforms.AddGaussianNoise(0., 0.05)], p=0.5),
+                transforms.RandomApply([transforms.CLAHE()], p=0.5),
+                transforms.RandomApply([transforms.RandomAdjustSharpness(sharpness_factor=2)], p=0.5),
+            ])], p=1 - 1 / (train_aug_iter + 1)),
+            transforms.Resize(image_size),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=image_means, std=image_stds)
+        ])
+
     else:
         train_transforms = transforms.Compose([
+            transforms.ToPILImage(),
             transforms.Resize(image_size),
-            transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             transforms.Normalize(mean=image_means,
                                  std=image_stds)
@@ -54,7 +71,7 @@ def train(args,image_size = [128,128],image_means = [0.5],image_stds= [0.5],vali
 
     train_data = BasicTrackerDataset(os.path.join(args.train_set_dir),transforms=train_transforms,if_train_aug=if_train_aug,train_aug_iter=train_aug_iter)
 
-    n_train_examples = int(len(train_data) * valid_ratio)
+    n_train_examples = int(len(train_data) * train_ratio)
     n_valid_examples = len(train_data) - n_train_examples
 
     train_data, valid_data = data.random_split(train_data,[n_train_examples, n_valid_examples],generator=torch.Generator().manual_seed(SEED))
@@ -126,7 +143,7 @@ def train(args,image_size = [128,128],image_means = [0.5],image_stds= [0.5],vali
             avg_precision_best=avg_precision
             states = model.state_dict()
             if save_checkpoint:
-               logging.info('>>>> save model to %s'%(os.path.join(args.output_dir,'tracker.pth')))
+               logging.info('>>>> Save the model checkpoint to %s'%(os.path.join(args.output_dir,'tracker.pth')))
                torch.save(states, os.path.join(args.output_dir,'tracker.pth'))
 
             nstop=0
@@ -150,7 +167,6 @@ if __name__ == "__main__":
     ap.add_argument("--output_dir", required=True, type=str, help="path for saving the train log and best model")
 
     args = ap.parse_args()
-
     assert os.path.isdir(args.train_set_dir), 'No such file or directory: ' + args.train_set_dir
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)

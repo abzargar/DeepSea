@@ -1,6 +1,8 @@
 import math
 import numbers
 import random
+import numpy as np
+import cv2
 import warnings
 from collections.abc import Sequence
 from typing import Tuple, List, Optional
@@ -17,12 +19,44 @@ except ImportError:
 from torchvision.transforms import functional as F
 
 
-__all__ = ["Compose", "ToTensor", "PILToTensor", "ConvertImageDtype", "ToPILImage", "Normalize", "Resize", "Scale",
-           "CenterCrop", "Pad", "Lambda", "RandomApply", "RandomChoice", "RandomOrder", "RandomCrop",
-           "RandomHorizontalFlip", "RandomVerticalFlip", "TenCrop",
-           "LinearTransformation", "ColorJitter", "RandomRotation", "Grayscale", "RandomGrayscale",
-           "RandomPerspective", "RandomErasing", "GaussianBlur"]
+__all__ = ["CLAHE","AddGaussianNoise","Compose", "ToTensor", "PILToTensor", "ConvertImageDtype", "ToPILImage", "Normalize", "Resize", "Scale",
+           "Pad", "Lambda", "RandomApply","RandomOrder",
+           "RandomHorizontalFlip", "RandomVerticalFlip",
+           "ColorJitter", "Grayscale",
+           "RandomErasing", "GaussianBlur"]
 
+class CLAHE:
+    def __call__(self, img_prev,img_curr,mask):
+        return self.apply_clahe(img_prev),self.apply_clahe(img_curr),mask
+
+    def apply_clahe(self,img):
+        img = np.array(img)
+        clahe = cv2.createCLAHE(clipLimit=1, tileGridSize=(3, 3))
+        img = clahe.apply(img)
+        img[img > 255] = 255
+        return Image.fromarray(img.astype(np.uint8))
+
+    def __repr__(self):
+        return self.__class__.__name__
+
+class AddGaussianNoise:
+    def __init__(self, mean=0., std_max=1.):
+        self.std_max = std_max
+        self.mean = mean
+
+    def __call__(self, img_prev,img_curr,mask):
+        return self.add_noise(img_prev),self.add_noise(img_curr),mask
+
+    def add_noise(self,img):
+        img = np.array(img)
+        std = random.uniform(.005, self.std_max)
+        gaussian = np.random.normal(self.mean, std, (img.shape[0], img.shape[1]))
+        img = img + 255 * gaussian
+        img[img > 255] = 255
+        return Image.fromarray(img.astype(np.uint8))
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 class Compose:
     """Composes several transforms together. This transform does not support torchscript.
@@ -54,10 +88,10 @@ class Compose:
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, img,mask,wmap):
+    def __call__(self, img_prev,img_curr,mask):
         for t in self.transforms:
-            img,mask,wmap = t(img,mask,wmap)
-        return img,mask,wmap
+            img_prev,img_curr,mask = t(img_prev,img_curr,mask)
+        return img_prev,img_curr,mask
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
@@ -166,7 +200,7 @@ class ToPILImage:
     def __init__(self, mode=None):
         self.mode = mode
 
-    def __call__(self, pic):
+    def __call__(self, img_prev,img_curr,mask):
         """
         Args:
             pic (Tensor or numpy.ndarray): Image to be converted to PIL Image.
@@ -175,7 +209,7 @@ class ToPILImage:
             PIL Image: Image converted to PIL Image.
 
         """
-        return F.to_pil_image(pic, self.mode)
+        return F.to_pil_image(img_prev, self.mode),F.to_pil_image(img_curr, self.mode),F.to_pil_image(mask, self.mode)
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
@@ -277,36 +311,6 @@ class Scale(Resize):
         warnings.warn("The use of the transforms.Scale transform is deprecated, " +
                       "please use transforms.Resize instead.")
         super(Scale, self).__init__(*args, **kwargs)
-
-
-class CenterCrop(torch.nn.Module):
-    """Crops the given image at the center.
-    If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If image size is smaller than output size along any edge, image is padded with 0 and then center cropped.
-
-    Args:
-        size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as (size[0], size[0]).
-    """
-
-    def __init__(self, size):
-        super().__init__()
-        self.size = _setup_size(size, error_msg="Please provide only two dimensions (h, w) for size.")
-
-    def forward(self, img):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be cropped.
-
-        Returns:
-            PIL Image or Tensor: Cropped image.
-        """
-        return F.center_crop(img, self.size)
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(size={0})'.format(self.size)
 
 
 class Pad(torch.nn.Module):
@@ -469,131 +473,13 @@ class RandomApply(torch.nn.Module):
 class RandomOrder(RandomTransforms):
     """Apply a list of transformations in a random order. This transform does not support torchscript.
     """
-    def __call__(self, img,mask,wmap):
+    def __call__(self, img_prev,img_curr,mask):
         order = list(range(len(self.transforms)))
         random.shuffle(order)
         for i in order:
-            img,mask,wmap = self.transforms[i](img,mask,wmap)
-        return img,mask,wmap
+            img_prev,img_curr,mask = self.transforms[i](img_prev,img_curr,mask)
+        return img_prev,img_curr,mask
 
-
-class RandomChoice(RandomTransforms):
-    """Apply single transformation randomly picked from a list. This transform does not support torchscript.
-    """
-    def __call__(self, img,mask,wmap):
-        t = random.choice(self.transforms)
-        return t(img,mask,wmap)
-
-
-class RandomCrop(torch.nn.Module):
-    """Crop the given image at a random location.
-    If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions,
-    but if non-constant padding is used, the input is expected to have at most 2 leading dimensions
-
-    Args:
-        size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as (size[0], size[0]).
-        padding (int or sequence, optional): Optional padding on each border
-            of the image. Default is None. If a single int is provided this
-            is used to pad all borders. If sequence of length 2 is provided this is the padding
-            on left/right and top/bottom respectively. If a sequence of length 4 is provided
-            this is the padding for the left, top, right and bottom borders respectively.
-
-            .. note::
-                In torchscript mode padding as single int is not supported, use a sequence of
-                length 1: ``[padding, ]``.
-        pad_if_needed (boolean): It will pad the image if smaller than the
-            desired size to avoid raising an exception. Since cropping is done
-            after padding, the padding seems to be done at a random offset.
-        fill (number or str or tuple): Pixel fill value for constant fill. Default is 0. If a tuple of
-            length 3, it is used to fill R, G, B channels respectively.
-            This value is only used when the padding_mode is constant.
-            Only number is supported for torch Tensor.
-            Only int or str or tuple value is supported for PIL Image.
-        padding_mode (str): Type of padding. Should be: constant, edge, reflect or symmetric.
-            Default is constant.
-
-            - constant: pads with a constant value, this value is specified with fill
-
-            - edge: pads with the last value at the edge of the image.
-              If input a 5D torch Tensor, the last 3 dimensions will be padded instead of the last 2
-
-            - reflect: pads with reflection of image without repeating the last value on the edge.
-              For example, padding [1, 2, 3, 4] with 2 elements on both sides in reflect mode
-              will result in [3, 2, 1, 2, 3, 4, 3, 2]
-
-            - symmetric: pads with reflection of image repeating the last value on the edge.
-              For example, padding [1, 2, 3, 4] with 2 elements on both sides in symmetric mode
-              will result in [2, 1, 1, 2, 3, 4, 4, 3]
-    """
-
-    @staticmethod
-    def get_params(img: Tensor, output_size: Tuple[int, int]) -> Tuple[int, int, int, int]:
-        """Get parameters for ``crop`` for a random crop.
-
-        Args:
-            img (PIL Image or Tensor): Image to be cropped.
-            output_size (tuple): Expected output size of the crop.
-
-        Returns:
-            tuple: params (i, j, h, w) to be passed to ``crop`` for random crop.
-        """
-        w, h = F._get_image_size(img)
-        th, tw = output_size
-
-        if h + 1 < th or w + 1 < tw:
-            raise ValueError(
-                "Required crop size {} is larger then input image size {}".format((th, tw), (h, w))
-            )
-
-        if w == tw and h == th:
-            return 0, 0, h, w
-
-        i = torch.randint(0, h - th + 1, size=(1, )).item()
-        j = torch.randint(0, w - tw + 1, size=(1, )).item()
-        return i, j, th, tw
-
-    def __init__(self, size, padding=None, pad_if_needed=False, fill=0, padding_mode="constant"):
-        super().__init__()
-
-        self.size = tuple(_setup_size(
-            size, error_msg="Please provide only two dimensions (h, w) for size."
-        ))
-
-        self.padding = padding
-        self.pad_if_needed = pad_if_needed
-        self.fill = fill
-        self.padding_mode = padding_mode
-
-    def forward(self, img,mask,wmap):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be cropped.
-
-        Returns:
-            PIL Image or Tensor: Cropped image.
-        """
-        if self.padding is not None:
-            img = F.pad(img, self.padding, self.fill, self.padding_mode)
-
-        width, height = F._get_image_size(img)
-        # pad the width if needed
-        if self.pad_if_needed and width < self.size[1]:
-            padding = [self.size[1] - width, 0]
-            img = F.pad(img, padding, self.fill, self.padding_mode)
-        # pad the height if needed
-        if self.pad_if_needed and height < self.size[0]:
-            padding = [0, self.size[0] - height]
-            img = F.pad(img, padding, self.fill, self.padding_mode)
-
-        i, j, h, w = self.get_params(img, self.size)
-
-        return F.crop(img, i, j, h, w),F.crop(mask, i, j, h, w),F.crop(wmap, i, j, h, w)
-
-    def __repr__(self):
-        return self.__class__.__name__ + "(size={0}, padding={1})".format(self.size, self.padding)
 
 
 class Pass(torch.nn.Module):
@@ -668,377 +554,6 @@ class RandomVerticalFlip(torch.nn.Module):
 
     def __repr__(self):
         return self.__class__.__name__ + '(p={})'.format(self.p)
-
-
-class RandomPerspective(torch.nn.Module):
-    """Performs a random perspective transformation of the given image with a given probability.
-    The image can be a PIL Image or a Tensor, in which case it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-
-    Args:
-        distortion_scale (float): argument to control the degree of distortion and ranges from 0 to 1.
-            Default is 0.5.
-        p (float): probability of the image being transformed. Default is 0.5.
-        interpolation (int): Interpolation type. If input is Tensor, only ``PIL.Image.NEAREST`` and
-            ``PIL.Image.BILINEAR`` are supported. Default, ``PIL.Image.BILINEAR`` for PIL images and Tensors.
-        fill (n-tuple or int or float): Pixel fill value for area outside the rotated
-            image. If int or float, the value is used for all bands respectively. Default is 0.
-            This option is only available for ``pillow>=5.0.0``. This option is not supported for Tensor
-            input. Fill value for the area outside the transform in the output image is always 0.
-
-    """
-
-    def __init__(self, distortion_scale=0.5, p=0.5, interpolation=Image.BILINEAR, fill=0):
-        super().__init__()
-        self.p = p
-        self.interpolation = interpolation
-        self.distortion_scale = distortion_scale
-        self.fill = fill
-
-    def forward(self, img):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be Perspectively transformed.
-
-        Returns:
-            PIL Image or Tensor: Randomly transformed image.
-        """
-        if torch.rand(1) < self.p:
-            width, height = F._get_image_size(img)
-            startpoints, endpoints = self.get_params(width, height, self.distortion_scale)
-            return F.perspective(img, startpoints, endpoints, self.interpolation, self.fill)
-        return img
-
-    @staticmethod
-    def get_params(width: int, height: int, distortion_scale: float) -> Tuple[List[List[int]], List[List[int]]]:
-        """Get parameters for ``perspective`` for a random perspective transform.
-
-        Args:
-            width (int): width of the image.
-            height (int): height of the image.
-            distortion_scale (float): argument to control the degree of distortion and ranges from 0 to 1.
-
-        Returns:
-            List containing [top-left, top-right, bottom-right, bottom-left] of the original image,
-            List containing [top-left, top-right, bottom-right, bottom-left] of the transformed image.
-        """
-        half_height = height // 2
-        half_width = width // 2
-        topleft = [
-            int(torch.randint(0, int(distortion_scale * half_width) + 1, size=(1, )).item()),
-            int(torch.randint(0, int(distortion_scale * half_height) + 1, size=(1, )).item())
-        ]
-        topright = [
-            int(torch.randint(width - int(distortion_scale * half_width) - 1, width, size=(1, )).item()),
-            int(torch.randint(0, int(distortion_scale * half_height) + 1, size=(1, )).item())
-        ]
-        botright = [
-            int(torch.randint(width - int(distortion_scale * half_width) - 1, width, size=(1, )).item()),
-            int(torch.randint(height - int(distortion_scale * half_height) - 1, height, size=(1, )).item())
-        ]
-        botleft = [
-            int(torch.randint(0, int(distortion_scale * half_width) + 1, size=(1, )).item()),
-            int(torch.randint(height - int(distortion_scale * half_height) - 1, height, size=(1, )).item())
-        ]
-        startpoints = [[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]]
-        endpoints = [topleft, topright, botright, botleft]
-        return startpoints, endpoints
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(p={})'.format(self.p)
-
-
-# class RandomResizedCrop(torch.nn.Module):
-#     """Crop a random portion of image and resize it to a given size.
-#
-#     If the image is torch Tensor, it is expected
-#     to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions
-#
-#     A crop of the original image is made: the crop has a random area (H * W)
-#     and a random aspect ratio. This crop is finally resized to the given
-#     size. This is popularly used to train the Inception networks.
-#
-#     Args:
-#         size (int or sequence): expected output size of the crop, for each edge. If size is an
-#             int instead of sequence like (h, w), a square output size ``(size, size)`` is
-#             made. If provided a sequence of length 1, it will be interpreted as (size[0], size[0]).
-#
-#             .. note::
-#                 In torchscript mode size as single int is not supported, use a sequence of length 1: ``[size, ]``.
-#         scale (tuple of float): Specifies the lower and upper bounds for the random area of the crop,
-#             before resizing. The scale is defined with respect to the area of the original image.
-#         ratio (tuple of float): lower and upper bounds for the random aspect ratio of the crop, before
-#             resizing.
-#         interpolation (InterpolationMode): Desired interpolation enum defined by
-#             :class:`torchvision.transforms.InterpolationMode`. Default is ``InterpolationMode.BILINEAR``.
-#             If input is Tensor, only ``InterpolationMode.NEAREST``, ``InterpolationMode.BILINEAR`` and
-#             ``InterpolationMode.BICUBIC`` are supported.
-#             For backward compatibility integer values (e.g. ``PIL.Image.NEAREST``) are still acceptable.
-#
-#     """
-#
-#     def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.), interpolation=InterpolationMode.BILINEAR):
-#         super().__init__()
-#         self.size = _setup_size(size, error_msg="Please provide only two dimensions (h, w) for size.")
-#
-#         if not isinstance(scale, Sequence):
-#             raise TypeError("Scale should be a sequence")
-#         if not isinstance(ratio, Sequence):
-#             raise TypeError("Ratio should be a sequence")
-#         if (scale[0] > scale[1]) or (ratio[0] > ratio[1]):
-#             warnings.warn("Scale and ratio should be of kind (min, max)")
-#
-#         # Backward compatibility with integer value
-#         if isinstance(interpolation, int):
-#             warnings.warn(
-#                 "Argument interpolation should be of type InterpolationMode instead of int. "
-#                 "Please, use InterpolationMode enum."
-#             )
-#             interpolation = _interpolation_modes_from_int(interpolation)
-#
-#         self.interpolation = interpolation
-#         self.scale = scale
-#         self.ratio = ratio
-#
-#     @staticmethod
-#     def get_params(
-#             img: Tensor, scale: List[float], ratio: List[float]
-#     ) -> Tuple[int, int, int, int]:
-#         """Get parameters for ``crop`` for a random sized crop.
-#
-#         Args:
-#             img (PIL Image or Tensor): Input image.
-#             scale (list): range of scale of the origin size cropped
-#             ratio (list): range of aspect ratio of the origin aspect ratio cropped
-#
-#         Returns:
-#             tuple: params (i, j, h, w) to be passed to ``crop`` for a random
-#             sized crop.
-#         """
-#         width, height = F._get_image_size(img)
-#         area = height * width
-#
-#         log_ratio = torch.log(torch.tensor(ratio))
-#         for _ in range(10):
-#             target_area = area * torch.empty(1).uniform_(scale[0], scale[1]).item()
-#             aspect_ratio = torch.exp(
-#                 torch.empty(1).uniform_(log_ratio[0], log_ratio[1])
-#             ).item()
-#
-#             w = int(round(math.sqrt(target_area * aspect_ratio)))
-#             h = int(round(math.sqrt(target_area / aspect_ratio)))
-#
-#             if 0 < w <= width and 0 < h <= height:
-#                 i = torch.randint(0, height - h + 1, size=(1,)).item()
-#                 j = torch.randint(0, width - w + 1, size=(1,)).item()
-#                 return i, j, h, w
-#
-#         # Fallback to central crop
-#         in_ratio = float(width) / float(height)
-#         if in_ratio < min(ratio):
-#             w = width
-#             h = int(round(w / min(ratio)))
-#         elif in_ratio > max(ratio):
-#             h = height
-#             w = int(round(h * max(ratio)))
-#         else:  # whole image
-#             w = width
-#             h = height
-#         i = (height - h) // 2
-#         j = (width - w) // 2
-#         return i, j, h, w
-#
-#     def forward(self, img):
-#         """
-#         Args:
-#             img (PIL Image or Tensor): Image to be cropped and resized.
-#
-#         Returns:
-#             PIL Image or Tensor: Randomly cropped and resized image.
-#         """
-#         i, j, h, w = self.get_params(img, self.scale, self.ratio)
-#         return F.resized_crop(img, i, j, h, w, self.size, self.interpolation)
-#
-#     def __repr__(self):
-#         interpolate_str = self.interpolation.value
-#         format_string = self.__class__.__name__ + '(size={0}'.format(self.size)
-#         format_string += ', scale={0}'.format(tuple(round(s, 4) for s in self.scale))
-#         format_string += ', ratio={0}'.format(tuple(round(r, 4) for r in self.ratio))
-#         format_string += ', interpolation={0})'.format(interpolate_str)
-#         return format_string
-
-
-# class RandomSizedCrop(RandomResizedCrop):
-#     """
-#     Note: This transform is deprecated in favor of RandomResizedCrop.
-#     """
-#     def __init__(self, *args, **kwargs):
-#         warnings.warn("The use of the transforms.RandomSizedCrop transform is deprecated, " +
-#                       "please use transforms.RandomResizedCrop instead.")
-#         super(RandomSizedCrop, self).__init__(*args, **kwargs)
-#
-#
-# class FiveCrop(torch.nn.Module):
-#     """Crop the given image into four corners and the central crop.
-#     If the image is torch Tensor, it is expected
-#     to have [..., H, W] shape, where ... means an arbitrary number of leading
-#     dimensions
-#
-#     .. Note::
-#          This transform returns a tuple of images and there may be a mismatch in the number of
-#          inputs and targets your Dataset returns. See below for an example of how to deal with
-#          this.
-#
-#     Args:
-#          size (sequence or int): Desired output size of the crop. If size is an ``int``
-#             instead of sequence like (h, w), a square crop of size (size, size) is made.
-#             If provided a sequence of length 1, it will be interpreted as (size[0], size[0]).
-#
-#     Example:
-#          >>> transform = Compose([
-#          >>>    FiveCrop(size), # this is a list of PIL Images
-#          >>>    Lambda(lambda crops: torch.stack([ToTensor()(crop) for crop in crops])) # returns a 4D tensor
-#          >>> ])
-#          >>> #In your test loop you can do the following:
-#          >>> input, target = batch # input is a 5d tensor, target is 2d
-#          >>> bs, ncrops, c, h, w = input.size()
-#          >>> result = model(input.view(-1, c, h, w)) # fuse batch size and ncrops
-#          >>> result_avg = result.view(bs, ncrops, -1).mean(1) # avg over crops
-#     """
-#
-#     def __init__(self, size):
-#         super().__init__()
-#         self.size = _setup_size(size, error_msg="Please provide only two dimensions (h, w) for size.")
-#
-#     def forward(self, img):
-#         """
-#         Args:
-#             img (PIL Image or Tensor): Image to be cropped.
-#
-#         Returns:
-#             tuple of 5 images. Image can be PIL Image or Tensor
-#         """
-#         return F.five_crop(img, self.size)
-#
-#     def __repr__(self):
-#         return self.__class__.__name__ + '(size={0})'.format(self.size)
-
-
-class TenCrop(torch.nn.Module):
-    """Crop the given image into four corners and the central crop plus the flipped version of
-    these (horizontal flipping is used by default).
-    If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading
-    dimensions
-
-    .. Note::
-         This transform returns a tuple of images and there may be a mismatch in the number of
-         inputs and targets your Dataset returns. See below for an example of how to deal with
-         this.
-
-    Args:
-        size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made. If provided a sequence of length 1, it will be interpreted as (size[0], size[0]).
-        vertical_flip (bool): Use vertical flipping instead of horizontal
-
-    Example:
-         >>> transform = Compose([
-         >>>    TenCrop(size), # this is a list of PIL Images
-         >>>    Lambda(lambda crops: torch.stack([ToTensor()(crop) for crop in crops])) # returns a 4D tensor
-         >>> ])
-         >>> #In your test loop you can do the following:
-         >>> input, target = batch # input is a 5d tensor, target is 2d
-         >>> bs, ncrops, c, h, w = input.size()
-         >>> result = model(input.view(-1, c, h, w)) # fuse batch size and ncrops
-         >>> result_avg = result.view(bs, ncrops, -1).mean(1) # avg over crops
-    """
-
-    def __init__(self, size, vertical_flip=False):
-        super().__init__()
-        self.size = _setup_size(size, error_msg="Please provide only two dimensions (h, w) for size.")
-        self.vertical_flip = vertical_flip
-
-    def forward(self, img):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be cropped.
-
-        Returns:
-            tuple of 10 images. Image can be PIL Image or Tensor
-        """
-        return F.ten_crop(img, self.size, self.vertical_flip)
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(size={0}, vertical_flip={1})'.format(self.size, self.vertical_flip)
-
-
-class LinearTransformation(torch.nn.Module):
-    """Transform a tensor image with a square transformation matrix and a mean_vector computed
-    offline.
-    This transform does not support PIL Image.
-    Given transformation_matrix and mean_vector, will flatten the torch.*Tensor and
-    subtract mean_vector from it which is then followed by computing the dot
-    product with the transformation matrix and then reshaping the tensor to its
-    original shape.
-
-    Applications:
-        whitening transformation: Suppose X is a column vector zero-centered data.
-        Then compute the data covariance matrix [D x D] with torch.mm(X.t(), X),
-        perform SVD on this matrix and pass it as transformation_matrix.
-
-    Args:
-        transformation_matrix (Tensor): tensor [D x D], D = C x H x W
-        mean_vector (Tensor): tensor [D], D = C x H x W
-    """
-
-    def __init__(self, transformation_matrix, mean_vector):
-        super().__init__()
-        if transformation_matrix.size(0) != transformation_matrix.size(1):
-            raise ValueError("transformation_matrix should be square. Got " +
-                             "[{} x {}] rectangular matrix.".format(*transformation_matrix.size()))
-
-        if mean_vector.size(0) != transformation_matrix.size(0):
-            raise ValueError("mean_vector should have the same length {}".format(mean_vector.size(0)) +
-                             " as any one of the dimensions of the transformation_matrix [{}]"
-                             .format(tuple(transformation_matrix.size())))
-
-        if transformation_matrix.device != mean_vector.device:
-            raise ValueError("Input tensors should be on the same device. Got {} and {}"
-                             .format(transformation_matrix.device, mean_vector.device))
-
-        self.transformation_matrix = transformation_matrix
-        self.mean_vector = mean_vector
-
-    def forward(self, tensor: Tensor) -> Tensor:
-        """
-        Args:
-            tensor (Tensor): Tensor image to be whitened.
-
-        Returns:
-            Tensor: Transformed image.
-        """
-        shape = tensor.shape
-        n = shape[-3] * shape[-2] * shape[-1]
-        if n != self.transformation_matrix.shape[0]:
-            raise ValueError("Input tensor and transformation matrix have incompatible shape." +
-                             "[{} x {} x {}] != ".format(shape[-3], shape[-2], shape[-1]) +
-                             "{}".format(self.transformation_matrix.shape[0]))
-
-        if tensor.device.type != self.mean_vector.device.type:
-            raise ValueError("Input tensor should be on the same device as transformation matrix and mean vector. "
-                             "Got {} vs {}".format(tensor.device, self.mean_vector.device))
-
-        flat_tensor = tensor.view(-1, n) - self.mean_vector
-        transformed_tensor = torch.mm(flat_tensor, self.transformation_matrix)
-        tensor = transformed_tensor.view(shape)
-        return tensor
-
-    def __repr__(self):
-        format_string = self.__class__.__name__ + '(transformation_matrix='
-        format_string += (str(self.transformation_matrix.tolist()) + ')')
-        format_string += (", (mean_vector=" + str(self.mean_vector.tolist()) + ')')
-        return format_string
 
 
 class ColorJitter(torch.nn.Module):
@@ -1156,238 +671,6 @@ class ColorJitter(torch.nn.Module):
         format_string += ', hue={0})'.format(self.hue)
         return format_string
 
-class RandomRotation(torch.nn.Module):
-    """Rotate the image by angle.
-    The image can be a PIL Image or a Tensor, in which case it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-
-    Args:
-        degrees (sequence or float or int): Range of degrees to select from.
-            If degrees is a number instead of sequence like (min, max), the range of degrees
-            will be (-degrees, +degrees).
-        resample (int, optional): An optional resampling filter. See `filters`_ for more information.
-            If omitted, or if the image has mode "1" or "P", it is set to PIL.Image.NEAREST.
-            If input is Tensor, only ``PIL.Image.NEAREST`` and ``PIL.Image.BILINEAR`` are supported.
-        expand (bool, optional): Optional expansion flag.
-            If true, expands the output to make it large enough to hold the entire rotated image.
-            If false or omitted, make the output image the same size as the input image.
-            Note that the expand flag assumes rotation around the center and no translation.
-        center (list or tuple, optional): Optional center of rotation, (x, y). Origin is the upper left corner.
-            Default is the center of the image.
-        fill (n-tuple or int or float): Pixel fill value for area outside the rotated
-            image. If int or float, the value is used for all bands respectively.
-            Defaults to 0 for all bands. This option is only available for Pillow>=5.2.0.
-            This option is not supported for Tensor input. Fill value for the area outside the transform in the output
-            image is always 0.
-
-    .. _filters: https://pillow.readthedocs.io/en/latest/handbook/concepts.html#filters
-
-    """
-
-    def __init__(self, degrees, resample=Image.NEAREST, expand=False, center=None, fill=0):
-        super().__init__()
-        self.degrees = _setup_angle(degrees, name="degrees", req_sizes=(2, ))
-
-        if center is not None:
-            _check_sequence_input(center, "center", req_sizes=(2, ))
-
-        self.center = center
-
-        self.resample = resample
-        self.expand = expand
-        self.fill = fill
-
-    @staticmethod
-    def get_params(degrees: List[float]) -> float:
-        """Get parameters for ``rotate`` for a random rotation.
-
-        Returns:
-            float: angle parameter to be passed to ``rotate`` for random rotation.
-        """
-        angle = float(torch.empty(1).uniform_(float(degrees[0]), float(degrees[1])).item())
-        return angle
-
-    def forward(self, img,mask,wmap):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be rotated.
-
-        Returns:
-            PIL Image or Tensor: Rotated image.
-        """
-        angle = self.get_params(self.degrees)
-        return F.rotate(img, angle, self.resample, self.expand, self.center, self.fill),F.rotate(mask, angle, self.resample, self.expand, self.center, self.fill),F.rotate(wmap, angle, self.resample, self.expand, self.center, self.fill)
-
-
-
-
-# class RandomAffine(torch.nn.Module):
-#     """Random affine transformation of the image keeping center invariant.
-#     If the image is torch Tensor, it is expected
-#     to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
-#
-#     Args:
-#         degrees (sequence or number): Range of degrees to select from.
-#             If degrees is a number instead of sequence like (min, max), the range of degrees
-#             will be (-degrees, +degrees). Set to 0 to deactivate rotations.
-#         translate (tuple, optional): tuple of maximum absolute fraction for horizontal
-#             and vertical translations. For example translate=(a, b), then horizontal shift
-#             is randomly sampled in the range -img_width * a < dx < img_width * a and vertical shift is
-#             randomly sampled in the range -img_height * b < dy < img_height * b. Will not translate by default.
-#         scale (tuple, optional): scaling factor interval, e.g (a, b), then scale is
-#             randomly sampled from the range a <= scale <= b. Will keep original scale by default.
-#         shear (sequence or number, optional): Range of degrees to select from.
-#             If shear is a number, a shear parallel to the x axis in the range (-shear, +shear)
-#             will be applied. Else if shear is a sequence of 2 values a shear parallel to the x axis in the
-#             range (shear[0], shear[1]) will be applied. Else if shear is a sequence of 4 values,
-#             a x-axis shear in (shear[0], shear[1]) and y-axis shear in (shear[2], shear[3]) will be applied.
-#             Will not apply shear by default.
-#         interpolation (InterpolationMode): Desired interpolation enum defined by
-#             :class:`torchvision.transforms.InterpolationMode`. Default is ``InterpolationMode.NEAREST``.
-#             If input is Tensor, only ``InterpolationMode.NEAREST``, ``InterpolationMode.BILINEAR`` are supported.
-#             For backward compatibility integer values (e.g. ``PIL.Image.NEAREST``) are still acceptable.
-#         fill (sequence or number): Pixel fill value for the area outside the transformed
-#             image. Default is ``0``. If given a number, the value is used for all bands respectively.
-#         fillcolor (sequence or number, optional): deprecated argument and will be removed since v0.10.0.
-#             Please use the ``fill`` parameter instead.
-#         resample (int, optional): deprecated argument and will be removed since v0.10.0.
-#             Please use the ``interpolation`` parameter instead.
-#
-#     .. _filters: https://pillow.readthedocs.io/en/latest/handbook/concepts.html#filters
-#
-#     """
-#
-#     def __init__(
-#         self, degrees, translate=None, scale=None, shear=None, interpolation=InterpolationMode.NEAREST, fill=0,
-#         fillcolor=None, resample=None
-#     ):
-#         super().__init__()
-#         if resample is not None:
-#             warnings.warn(
-#                 "Argument resample is deprecated and will be removed since v0.10.0. Please, use interpolation instead"
-#             )
-#             interpolation = _interpolation_modes_from_int(resample)
-#
-#         # Backward compatibility with integer value
-#         if isinstance(interpolation, int):
-#             warnings.warn(
-#                 "Argument interpolation should be of type InterpolationMode instead of int. "
-#                 "Please, use InterpolationMode enum."
-#             )
-#             interpolation = _interpolation_modes_from_int(interpolation)
-#
-#         if fillcolor is not None:
-#             warnings.warn(
-#                 "Argument fillcolor is deprecated and will be removed since v0.10.0. Please, use fill instead"
-#             )
-#             fill = fillcolor
-#
-#         self.degrees = _setup_angle(degrees, name="degrees", req_sizes=(2, ))
-#
-#         if translate is not None:
-#             _check_sequence_input(translate, "translate", req_sizes=(2, ))
-#             for t in translate:
-#                 if not (0.0 <= t <= 1.0):
-#                     raise ValueError("translation values should be between 0 and 1")
-#         self.translate = translate
-#
-#         if scale is not None:
-#             _check_sequence_input(scale, "scale", req_sizes=(2, ))
-#             for s in scale:
-#                 if s <= 0:
-#                     raise ValueError("scale values should be positive")
-#         self.scale = scale
-#
-#         if shear is not None:
-#             self.shear = _setup_angle(shear, name="shear", req_sizes=(2, 4))
-#         else:
-#             self.shear = shear
-#
-#         self.resample = self.interpolation = interpolation
-#
-#         if fill is None:
-#             fill = 0
-#         elif not isinstance(fill, (Sequence, numbers.Number)):
-#             raise TypeError("Fill should be either a sequence or a number.")
-#
-#         self.fillcolor = self.fill = fill
-#
-#     @staticmethod
-#     def get_params(
-#             degrees: List[float],
-#             translate: Optional[List[float]],
-#             scale_ranges: Optional[List[float]],
-#             shears: Optional[List[float]],
-#             img_size: List[int]
-#     ) -> Tuple[float, Tuple[int, int], float, Tuple[float, float]]:
-#         """Get parameters for affine transformation
-#
-#         Returns:
-#             params to be passed to the affine transformation
-#         """
-#         angle = float(torch.empty(1).uniform_(float(degrees[0]), float(degrees[1])).item())
-#         if translate is not None:
-#             max_dx = float(translate[0] * img_size[0])
-#             max_dy = float(translate[1] * img_size[1])
-#             tx = int(round(torch.empty(1).uniform_(-max_dx, max_dx).item()))
-#             ty = int(round(torch.empty(1).uniform_(-max_dy, max_dy).item()))
-#             translations = (tx, ty)
-#         else:
-#             translations = (0, 0)
-#
-#         if scale_ranges is not None:
-#             scale = float(torch.empty(1).uniform_(scale_ranges[0], scale_ranges[1]).item())
-#         else:
-#             scale = 1.0
-#
-#         shear_x = shear_y = 0.0
-#         if shears is not None:
-#             shear_x = float(torch.empty(1).uniform_(shears[0], shears[1]).item())
-#             if len(shears) == 4:
-#                 shear_y = float(torch.empty(1).uniform_(shears[2], shears[3]).item())
-#
-#         shear = (shear_x, shear_y)
-#
-#         return angle, translations, scale, shear
-#
-#     def forward(self, img):
-#         """
-#             img (PIL Image or Tensor): Image to be transformed.
-#
-#         Returns:
-#             PIL Image or Tensor: Affine transformed image.
-#         """
-#         fill = self.fill
-#         if isinstance(img, Tensor):
-#             if isinstance(fill, (int, float)):
-#                 fill = [float(fill)] * F._get_image_num_channels(img)
-#             else:
-#                 fill = [float(f) for f in fill]
-#
-#         img_size = F._get_image_size(img)
-#
-#         ret = self.get_params(self.degrees, self.translate, self.scale, self.shear, img_size)
-#
-#         return F.affine(img, *ret, interpolation=self.interpolation, fill=fill)
-#
-#     def __repr__(self):
-#         s = '{name}(degrees={degrees}'
-#         if self.translate is not None:
-#             s += ', translate={translate}'
-#         if self.scale is not None:
-#             s += ', scale={scale}'
-#         if self.shear is not None:
-#             s += ', shear={shear}'
-#         if self.interpolation != InterpolationMode.NEAREST:
-#             s += ', interpolation={interpolation}'
-#         if self.fill != 0:
-#             s += ', fill={fill}'
-#         s += ')'
-#         d = dict(self.__dict__)
-#         d['interpolation'] = self.interpolation.value
-#         return s.format(name=self.__class__.__name__, **d)
-
-
 class Grayscale(torch.nn.Module):
     """Convert image to grayscale.
     If the image is torch Tensor, it is expected
@@ -1420,73 +703,6 @@ class Grayscale(torch.nn.Module):
 
     def __repr__(self):
         return self.__class__.__name__ + '(num_output_channels={0})'.format(self.num_output_channels)
-
-class GetBoundingBoxes(torch.nn.Module):
-
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, img,mask):
-        import numpy as np
-
-        A = np.array([
-            [0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 1, 0, 2, 2, 0],
-            [0, 1, 1, 0, 2, 2, 0],
-            [0, 0, 0, 0, 0, 0, 0],
-            [0, 4, 4, 0, 3, 3, 0],
-            [0, 4, 4, 0, 3, 3, 0],
-            [0, 0, 0, 0, 0, 0, 0]
-        ])
-
-        bboxCorners = {}
-        for i in range(1, A.max() + 1):
-            B = np.argwhere(A == i)
-            bboxCorners[i] = B.min(0), B.max(0)
-
-        print(bboxCorners)
-        return img
-        return F.rgb_to_grayscale(img, num_output_channels=self.num_output_channels),F.rgb_to_grayscale(mask, num_output_channels=self.num_output_channels)
-
-    def __repr__(self):
-        return self.__class__.__name__
-
-
-class RandomGrayscale(torch.nn.Module):
-    """Randomly convert image to grayscale with a probability of p (default 0.1).
-    If the image is torch Tensor, it is expected
-    to have [..., 3, H, W] shape, where ... means an arbitrary number of leading dimensions
-
-    Args:
-        p (float): probability that image should be converted to grayscale.
-
-    Returns:
-        PIL Image or Tensor: Grayscale version of the input image with probability p and unchanged
-        with probability (1-p).
-        - If input image is 1 channel: grayscale version is 1 channel
-        - If input image is 3 channel: grayscale version is 3 channel with r == g == b
-
-    """
-
-    def __init__(self, p=0.1):
-        super().__init__()
-        self.p = p
-
-    def forward(self, img):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be converted to grayscale.
-
-        Returns:
-            PIL Image or Tensor: Randomly grayscaled image.
-        """
-        num_output_channels = F._get_image_num_channels(img)
-        if torch.rand(1) < self.p:
-            return F.rgb_to_grayscale(img, num_output_channels=num_output_channels)
-        return img
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(p={0})'.format(self.p)
 
 
 class RandomErasing(torch.nn.Module):
@@ -1720,99 +936,6 @@ def _setup_angle(x, name, req_sizes=(2, )):
     return [float(d) for d in x]
 
 
-class RandomInvert(torch.nn.Module):
-    """Inverts the colors of the given image randomly with a given probability.
-    If img is a Tensor, it is expected to be in [..., 1 or 3, H, W] format,
-    where ... means it can have an arbitrary number of leading dimensions.
-    If img is PIL Image, it is expected to be in mode "L" or "RGB".
-
-    Args:
-        p (float): probability of the image being color inverted. Default value is 0.5
-    """
-
-    def __init__(self, p=0.5):
-        super().__init__()
-        self.p = p
-
-    def forward(self, img):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be inverted.
-
-        Returns:
-            PIL Image or Tensor: Randomly color inverted image.
-        """
-        if torch.rand(1).item() < self.p:
-            return F.invert(img)
-        return img
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(p={})'.format(self.p)
-
-
-class RandomPosterize(torch.nn.Module):
-    """Posterize the image randomly with a given probability by reducing the
-    number of bits for each color channel. If the image is torch Tensor, it should be of type torch.uint8,
-    and it is expected to have [..., 1 or 3, H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If img is PIL Image, it is expected to be in mode "L" or "RGB".
-
-    Args:
-        bits (int): number of bits to keep for each channel (0-8)
-        p (float): probability of the image being color inverted. Default value is 0.5
-    """
-
-    def __init__(self, bits, p=0.5):
-        super().__init__()
-        self.bits = bits
-        self.p = p
-
-    def forward(self, img):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be posterized.
-
-        Returns:
-            PIL Image or Tensor: Randomly posterized image.
-        """
-        if torch.rand(1).item() < self.p:
-            return F.posterize(img, self.bits)
-        return img
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(bits={},p={})'.format(self.bits, self.p)
-
-
-class RandomSolarize(torch.nn.Module):
-    """Solarize the image randomly with a given probability by inverting all pixel
-    values above a threshold. If img is a Tensor, it is expected to be in [..., 1 or 3, H, W] format,
-    where ... means it can have an arbitrary number of leading dimensions.
-    If img is PIL Image, it is expected to be in mode "L" or "RGB".
-
-    Args:
-        threshold (float): all pixels equal or above this value are inverted.
-        p (float): probability of the image being color inverted. Default value is 0.5
-    """
-
-    def __init__(self, threshold, p=0.5):
-        super().__init__()
-        self.threshold = threshold
-        self.p = p
-
-    def forward(self, img):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be solarized.
-
-        Returns:
-            PIL Image or Tensor: Randomly solarized image.
-        """
-        if torch.rand(1).item() < self.p:
-            return F.solarize(img, self.threshold)
-        return img
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(threshold={},p={})'.format(self.threshold, self.p)
-
 
 class RandomAdjustSharpness(torch.nn.Module):
     """Adjust the sharpness of the image randomly with a given probability. If the image is torch Tensor,
@@ -1830,7 +953,7 @@ class RandomAdjustSharpness(torch.nn.Module):
         self.sharpness_factor = sharpness_factor
         self.p = p
 
-    def forward(self, img,mask,wmap):
+    def forward(self, img_prev,img_curr,mask):
         """
         Args:
             img (PIL Image or Tensor): Image to be sharpened.
@@ -1839,68 +962,10 @@ class RandomAdjustSharpness(torch.nn.Module):
             PIL Image or Tensor: Randomly sharpened image.
         """
         if torch.rand(1).item() < self.p:
-            return F.adjust_sharpness(img, self.sharpness_factor),mask,wmap
-        return img,mask,wmap
+            return F.adjust_sharpness(img_prev, self.sharpness_factor),F.adjust_sharpness(img_curr, self.sharpness_factor),mask
+        return img_prev,img_curr,mask
 
     def __repr__(self):
         return self.__class__.__name__ + '(sharpness_factor={},p={})'.format(self.sharpness_factor, self.p)
 
 
-class RandomAutocontrast(torch.nn.Module):
-    """Autocontrast the pixels of the given image randomly with a given probability.
-    If the image is torch Tensor, it is expected
-    to have [..., 1 or 3, H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If img is PIL Image, it is expected to be in mode "L" or "RGB".
-
-    Args:
-        p (float): probability of the image being autocontrasted. Default value is 0.5
-    """
-
-    def __init__(self, p=0.5):
-        super().__init__()
-        self.p = p
-
-    def forward(self, img):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be autocontrasted.
-
-        Returns:
-            PIL Image or Tensor: Randomly autocontrasted image.
-        """
-        if torch.rand(1).item() < self.p:
-            return F.autocontrast(img)
-        return img
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(p={})'.format(self.p)
-
-
-class RandomEqualize(torch.nn.Module):
-    """Equalize the histogram of the given image randomly with a given probability.
-    If the image is torch Tensor, it is expected
-    to have [..., 1 or 3, H, W] shape, where ... means an arbitrary number of leading dimensions.
-    If img is PIL Image, it is expected to be in mode "P", "L" or "RGB".
-
-    Args:
-        p (float): probability of the image being equalized. Default value is 0.5
-    """
-
-    def __init__(self, p=0.5):
-        super().__init__()
-        self.p = p
-
-    def forward(self, img,mask,wmap):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be equalized.
-
-        Returns:
-            PIL Image or Tensor: Randomly equalized image.
-        """
-        if torch.rand(1).item() < self.p:
-            return F.equalize(img),mask,wmap
-        return img,mask,wmap
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(p={})'.format(self.p)

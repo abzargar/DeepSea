@@ -3,7 +3,6 @@ import tracker_transforms
 import numpy as np
 import argparse
 import random
-from PIL import Image
 import cv2
 import torch
 from model import DeepSeaTracker
@@ -80,7 +79,7 @@ if __name__ == "__main__":
     print('Read images ...')
     img_list=[]
     for img_name in sorted(os.listdir(args.single_image_set_dir)):
-        img_list.append(Image.open(os.path.join(args.single_image_set_dir,img_name)))
+        img_list.append(cv2.imread(os.path.join(args.single_image_set_dir,img_name),0))
 
     cell_labels,cell_centroids,tracked_imgs=apply_cell_tracking(seg_model_ckpt,tr_model_ckpt,img_list)
     if tracked_imgs:

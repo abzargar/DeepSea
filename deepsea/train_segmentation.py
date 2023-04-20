@@ -1,4 +1,3 @@
-import os
 import argparse
 from model import DeepSeaSegmentation
 from data import BasicSegmentationDataset
@@ -24,28 +23,47 @@ torch.manual_seed(SEED)
 torch.cuda.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 
-def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],valid_ratio = 0.8,save_checkpoint=True,if_train_aug=False,train_aug_iter=3,patience=5):
+def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],train_ratio = 0.85,save_checkpoint=True,if_train_aug=True,train_aug_iter=3,patience=5):
+    """ function to train the segmentation model
 
+            Parameters
+            ------------
+
+            image_size: used to  resize the input image to the given size
+            image_means: used for the input image normalization
+            image_stds: used for the input image normalization
+            train_ratio: ratio of training samples to train the model, the remaining go for the validation process
+            save_checkpoint: True/False, True saves the best checkpoint given the validation score during the training process
+            if_train_aug: True/False, True uses the image augmentation during the training process (Recommended)
+            train_aug_iter: Number of augmentation iterations requested for each original training image
+            patience: number of epochs with no improvement before it stops the training, used for the early stopping technique
+
+
+    """
     logging.basicConfig(filename=os.path.join(args.output_dir, 'train.log'), filemode='w',format='%(asctime)s - %(message)s', level=logging.INFO)
     logging.info('>>>> image size=(%d,%d) , learning rate=%f , batch size=%d' % (image_size[0], image_size[1],args.lr,args.batch_size))
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if if_train_aug:
         train_transforms = transforms.Compose([
-                                   transforms.Grayscale(num_output_channels=1),
-                                   transforms.RandomApply([
-                                       transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0),
-                                       transforms.GaussianBlur((3, 3), sigma=(0.1, 1.0)),
-                                       transforms.RandomHorizontalFlip(0.5),
-                                       transforms.RandomVerticalFlip(0.5),
-                                    ],p=1-1/train_aug_iter),
+                                   transforms.ToPILImage(),
+                                   transforms.RandomApply([transforms.RandomOrder([
+                                       transforms.RandomApply([transforms.ColorJitter(brightness=0.33, contrast=0.33, saturation=0.33, hue=0)],p=0.5),
+                                       transforms.RandomApply([transforms.GaussianBlur((5, 5), sigma=(0.1, 1.0))],p=0.5),
+                                       transforms.RandomApply([transforms.RandomHorizontalFlip(0.5)],p=0.5),
+                                       transforms.RandomApply([transforms.RandomVerticalFlip(0.5)],p=0.5),
+                                       transforms.RandomApply([transforms.AddGaussianNoise(0., 0.05)], p=0.5),
+                                       transforms.RandomApply([transforms.CLAHE()], p=0.5),
+                                       transforms.RandomApply([transforms.RandomAdjustSharpness(sharpness_factor=2)], p=0.5),
+                                       transforms.RandomApply([transforms.RandomCrop()], p=0.5),
+                                    ])],p=1-1/(train_aug_iter+1)),
                                    transforms.Resize(image_size),
                                    transforms.ToTensor(),
                                    transforms.Normalize(mean = image_means,std = image_stds)
                                ])
     else:
         train_transforms = transforms.Compose([
+            transforms.ToPILImage(),
             transforms.Resize(image_size),
-            transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             transforms.Normalize(mean=image_means,
                                  std=image_stds)
@@ -54,7 +72,7 @@ def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],vali
 
     train_data = BasicSegmentationDataset(os.path.join(args.train_set_dir, 'images'), os.path.join(args.train_set_dir, 'masks'),os.path.join(args.train_set_dir, 'wmaps'),transforms=train_transforms,if_train_aug=if_train_aug,train_aug_iter=train_aug_iter)
 
-    n_train_examples = int(len(train_data) * valid_ratio)
+    n_train_examples = int(len(train_data) * train_ratio)
     n_valid_examples = len(train_data) - n_train_examples
 
     train_data, valid_data = data.random_split(train_data,[n_train_examples, n_valid_examples],generator=torch.Generator().manual_seed(SEED))
@@ -64,7 +82,6 @@ def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],vali
     valid_iterator = data.DataLoader(valid_data,batch_size = args.batch_size)
 
     model=DeepSeaSegmentation(n_channels=1, n_classes=2, bilinear=True)
-
     optimizer = optim.RMSprop(model.parameters(), lr=args.lr, weight_decay=1e-8, momentum=0.9)
 
     STEPS_PER_EPOCH = len(train_iterator)
@@ -100,7 +117,7 @@ def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],vali
                 with torch.cuda.amp.autocast(enabled=True):
                     masks_preds,wmap_preds = model(images)
                     loss = criterion(masks_preds, true_masks) \
-                            +1*criterion(wmap_preds, true_wmaps) \
+                            +5*criterion(wmap_preds, true_wmaps) \
                             + dice_loss(F.softmax(masks_preds, dim=1).float(),
                                        F.one_hot(true_masks, model.n_classes).permute(0, 3, 1, 2).float(),
                                        multiclass=True)
@@ -127,7 +144,7 @@ def train(args,image_size = [383,512],image_means = [0.5],image_stds= [0.5],vali
             avg_precision_best=avg_precision
             states = model.state_dict()
             if save_checkpoint:
-               logging.info('>>>> save model to %s'%(os.path.join(args.output_dir,'segmentation.pth')))
+               logging.info('>>>> Save the model checkpoint to %s'%(os.path.join(args.output_dir,'segmentation.pth')))
                torch.save(states, os.path.join(args.output_dir,'segmentation.pth'))
             nstop=0
         elif avg_precision is not None and avg_precision<=avg_precision_best:
