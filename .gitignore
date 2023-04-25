@@ -3,6 +3,9 @@
 # and we rely only on setup.cfg for env
 setup.py
 deepsea/_version.py
+test_images
+screenshots
+test_tracking
 
 # Ignore macOS files
 .DS_Store
