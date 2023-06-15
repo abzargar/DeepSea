@@ -367,8 +367,11 @@ def preprocess(pil_img_prev, pil_curr, pil_mask, transforms):
     tensor_img_prev, tensor_img_curr, tensor_mask = transforms(pil_img_prev, pil_curr, pil_mask)
     return tensor_img_prev, tensor_img_curr, tensor_mask
 
-def find_matchings(tracking_model, img_curr, img_prev, masks_curr, masks_prev, mask_curr, centroids_curr,
-                   centroids_prev, cell_labels, last_new_label_index,device,transforms):
+def find_matchings(
+        tracking_model, img_curr, img_prev, masks_curr, masks_prev, mask_curr, 
+        centroids_curr, centroids_prev, cell_labels, last_new_label_index,
+        device, transforms, min_size=20
+    ):
     labels_curr = []
     centroids_curr_new = []
     masks_curr_new = []
@@ -396,7 +399,7 @@ def find_matchings(tracking_model, img_curr, img_prev, masks_curr, masks_prev, m
         mask_pred = tracking_model(torch.unsqueeze(tensor_img_prev, 0), torch.unsqueeze(tensor_img_curr, 0))
         mask_pred = mask_pred.argmax(dim=1)
         mask_pred=mask_pred.cpu().numpy()
-        mask_pred=remove_small_objects(mask_pred[0, :, :] > 0, min_size=20, connectivity=1).astype('float64')
+        mask_pred=remove_small_objects(mask_pred[0, :, :] > 0, min_size=min_size, connectivity=1).astype('float64')
         mask_curr_cropped = Image.fromarray((mask_curr).astype('float64'))
         mask_curr_cropped = mask_curr_cropped.crop((int(centroid[1] - window_size / 2), int(centroid[0] - window_size / 2),
                                             int(centroid[1] + window_size / 2), int(centroid[0] + window_size / 2)))
@@ -525,7 +528,9 @@ def find_matchings(tracking_model, img_curr, img_prev, masks_curr, masks_prev, m
 
     return labels_curr, masks_curr_new, centroids_curr_new, last_new_label_index
 
-def track_cells(pred_list,img_list,tracking_model,device,transforms):
+def track_cells(
+        pred_list, img_list, tracking_model, device, transforms, min_size=20
+    ):
     tracking_model.eval()
     cell_labels,cell_centroids,tracked_imgs=[],[],[]
     with tqdm(total=len(pred_list), desc='Tracker Val round', unit='img') as pbar:
@@ -542,14 +547,15 @@ def track_cells(pred_list,img_list,tracking_model,device,transforms):
                 labels_curr = [str(i) for i in range(len(centroids_curr))]
                 last_new_label_index = len(centroids_curr) - 1
             else:
-                labels_curr, masks_curr, centroids_curr, last_new_label_index = find_matchings(tracking_model, img_curr,
-                                                                                               img_prev, masks_curr,
-                                                                                               masks_prev, mask_curr,
-                                                                                               centroids_curr,
-                                                                                               centroids_prev,
-                                                                                               cell_labels,
-                                                                                               last_new_label_index,device,transforms)
-
+                matchings_result = find_matchings(
+                    tracking_model, img_curr, img_prev, masks_curr, masks_prev, 
+                    mask_curr, centroids_curr, centroids_prev, cell_labels, 
+                    last_new_label_index, device, transforms, min_size=min_size
+                )
+                labels_curr, masks_curr, centroids_curr, last_new_label_index = (
+                    matchings_result
+                )
+            
             tracked_imgs.append(add_labels_to_image(img_curr, labels_curr, centroids_curr))
             cell_labels.append(labels_curr)
             cell_centroids.append((np.array(centroids_curr)).tolist())
